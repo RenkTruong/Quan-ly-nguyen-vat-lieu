@@ -33,12 +33,23 @@ import { DashboardSheet } from './components/DashboardSheet';
 import { PermissionsSheet } from './components/PermissionsSheet';
 import { SupplierSheet } from './components/SupplierSheet';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
-import { Lock, FileSpreadsheet, AlertTriangle, XCircle, ExternalLink } from 'lucide-react';
+import { QuickLoginModal } from './components/QuickLoginModal';
+import { Lock, FileSpreadsheet, AlertTriangle, XCircle, ExternalLink, Crown, LogIn } from 'lucide-react';
+
+export interface AppUser {
+  email: string | null;
+  displayName: string | null;
+  photoURL?: string | null;
+}
 
 export default function App() {
-  // Auth state
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  // Auth state - persists locally for GitHub Pages & seamless offline access
+  const [user, setUser] = useState<AppUser | null>(() => {
+    const saved = localStorage.getItem('nvl_session_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isQuickLoginOpen, setIsQuickLoginOpen] = useState(false);
 
   // Data states (Persisted locally in memory & synced with Google Sheets)
   const [imports, setImports] = useState<ImportRecord[]>(() => {
@@ -119,41 +130,74 @@ export default function App() {
     localStorage.setItem('nvl_min_stocks', JSON.stringify(minStocks));
   }, [minStocks]);
 
-  // Subscribe to Firebase Auth
-  useEffect(() => {
-    const unsubscribe = subscribeToAuth((firebaseUser) => {
-      setUser(firebaseUser);
-      setIsAuthLoading(false);
+  const applyUserRole = (email: string, displayName?: string | null) => {
+    const userEmailLower = email.toLowerCase();
+    const matched = users.find((u) => u.email.toLowerCase() === userEmailLower);
+    if (matched) {
+      setCurrentUserRole(matched);
+    } else if (userEmailLower === OWNER_EMAIL.toLowerCase()) {
+      const ownerObj: UserRole = {
+        email,
+        fullName: displayName || 'Trúc Giàu Trương (Chủ tài khoản)',
+        role: 'admin',
+        roleName: 'Quản trị viên cấp cao (Chủ sở hữu)',
+        sheets: initialRoleDefinitions[0].defaultSheets
+      };
+      setCurrentUserRole(ownerObj);
+    } else {
+      const defaultViewerObj: UserRole = {
+        email,
+        fullName: displayName || 'Nhân viên',
+        role: 'viewer',
+        roleName: 'Nhân viên chưa cấu hình (Chỉ xem)',
+        sheets: initialRoleDefinitions[4]?.defaultSheets || initialRoleDefinitions[0].defaultSheets
+      };
+      setCurrentUserRole(defaultViewerObj);
+    }
+  };
 
-      if (firebaseUser?.email) {
-        // Find or map user in our role system
-        const userEmailLower = firebaseUser.email.toLowerCase();
-        const matched = users.find((u) => u.email.toLowerCase() === userEmailLower);
-        if (matched) {
-          setCurrentUserRole(matched);
-        } else if (userEmailLower === OWNER_EMAIL.toLowerCase()) {
-          // If Owner logs in but not matched, give admin role
-          const ownerObj: UserRole = {
-            email: firebaseUser.email,
-            fullName: firebaseUser.displayName || 'Trúc Giàu Trương (Chủ tài khoản)',
-            role: 'admin',
-            roleName: 'Quản trị viên cấp cao (Chủ sở hữu)',
-            sheets: initialRoleDefinitions[0].defaultSheets
-          };
-          setCurrentUserRole(ownerObj);
-        } else {
-          // New user not configured by owner: assigned default viewer permissions
-          const defaultViewerObj: UserRole = {
-            email: firebaseUser.email,
-            fullName: firebaseUser.displayName || 'Nhân viên',
-            role: 'viewer',
-            roleName: 'Nhân viên chưa cấu hình (Chỉ xem)',
-            sheets: initialRoleDefinitions[4]?.defaultSheets || initialRoleDefinitions[0].defaultSheets
-          };
-          setCurrentUserRole(defaultViewerObj);
+  // Subscribe to Firebase Auth and sync session
+  useEffect(() => {
+    // Check saved session on boot
+    const savedUserStr = localStorage.getItem('nvl_session_user');
+    if (savedUserStr) {
+      try {
+        const parsed = JSON.parse(savedUserStr);
+        if (parsed?.email) {
+          applyUserRole(parsed.email, parsed.displayName);
         }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const unsubscribe = subscribeToAuth((firebaseUser) => {
+      setIsAuthLoading(false);
+      if (firebaseUser?.email) {
+        const uObj: AppUser = {
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL
+        };
+        setUser(uObj);
+        localStorage.setItem('nvl_session_user', JSON.stringify(uObj));
+        applyUserRole(firebaseUser.email, firebaseUser.displayName);
       } else {
-        // Logged out: fallback to viewer and enforce 'tonKho' tab
+        // Fallback to local session if present
+        const stored = localStorage.getItem('nvl_session_user');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed?.email) {
+              setUser(parsed);
+              applyUserRole(parsed.email, parsed.displayName);
+              return;
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        setUser(null);
         setActiveTab('tonKho');
       }
     });
@@ -250,8 +294,32 @@ export default function App() {
     }
   };
 
-  // Auth handler with friendly error display
+  // Auth handlers
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+
+  const handleEmailLogin = (email: string, fullName: string) => {
+    const customUser: AppUser = {
+      email,
+      displayName: fullName,
+      photoURL: null
+    };
+    setUser(customUser);
+    localStorage.setItem('nvl_session_user', JSON.stringify(customUser));
+    applyUserRole(email, fullName);
+    setAuthErrorMessage(null);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOutUser();
+    } catch (e) {
+      console.error(e);
+    }
+    localStorage.removeItem('nvl_session_user');
+    setUser(null);
+    setCurrentUserRole(initialUsers[0]);
+    setActiveTab('tonKho');
+  };
 
   const handleGoogleLogin = async () => {
     setAuthErrorMessage(null);
@@ -262,12 +330,11 @@ export default function App() {
       const code = err?.code || '';
       if (code === 'auth/unauthorized-domain') {
         setAuthErrorMessage(
-          'Tên miền GitHub Pages (renktruong.github.io) chưa được thêm vào danh sách "Authorized Domains" trong Firebase Authentication. Vui lòng thêm "renktruong.github.io" vào Firebase Console > Authentication > Settings > Authorized domains.'
+          'Firebase chặn đăng nhập Google do chưa cấp phép tên miền. Bạn hãy bấm "Đăng nhập nhanh bằng Email" bên dưới để vào hệ thống ngay lập tức mà không cần Firebase.'
         );
       } else if (code === 'auth/popup-blocked') {
         setAuthErrorMessage('Trình duyệt đã chặn cửa sổ Popup đăng nhập. Vui lòng cho phép Pop-up trên trình duyệt.');
       } else if (code === 'auth/popup-closed-by-user') {
-        // User closed popup, no need to show scary error
         console.log('User closed popup');
       } else {
         setAuthErrorMessage(err?.message || 'Đăng nhập Google không thành công. Vui lòng thử lại.');
@@ -337,7 +404,8 @@ export default function App() {
         allUserRoles={users}
         onSelectUserRole={handleSelectRole}
         onLogin={handleGoogleLogin}
-        onLogout={signOutUser}
+        onOpenQuickLogin={() => setIsQuickLoginOpen(true)}
+        onLogout={handleLogout}
         isLoggingIn={isAuthLoading}
         spreadsheetId={spreadsheetId}
         spreadsheetUrl={spreadsheetUrl}
@@ -356,19 +424,30 @@ export default function App() {
               </div>
               <div>
                 <span className="font-bold text-blue-950 text-sm block">
-                  Chế độ Khách: Chỉ được xem Sheet Tồn kho
+                  Chế độ Khách: Đang xem Sheet Tồn kho
                 </span>
                 <span className="text-blue-800">
-                  Vui lòng bấm <strong>"Đăng nhập Google"</strong> ở góc phải để mở khóa toàn bộ quyền hạn theo phân quyền tài khoản của bạn.
+                  Vui lòng đăng nhập để mở khóa đầy đủ 6 Sheet theo phân quyền của bạn.
                 </span>
               </div>
             </div>
-            <button
-              onClick={handleGoogleLogin}
-              className="inline-flex items-center px-3.5 py-1.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors whitespace-nowrap"
-            >
-              Đăng nhập Google ngay
-            </button>
+            <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+              <button
+                onClick={() => handleEmailLogin(OWNER_EMAIL, 'Trúc Giàu Trương (Chủ tài khoản)')}
+                className="inline-flex items-center px-3 py-1.5 rounded-xl font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors whitespace-nowrap"
+                title="Đăng nhập ngay với tư cách Chủ sở hữu"
+              >
+                <Crown className="w-3.5 h-3.5 mr-1" />
+                Vào vai Chủ tài khoản
+              </button>
+              <button
+                onClick={() => setIsQuickLoginOpen(true)}
+                className="inline-flex items-center px-3.5 py-1.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors whitespace-nowrap"
+              >
+                <LogIn className="w-3.5 h-3.5 mr-1.5" />
+                Đăng nhập
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -384,10 +463,10 @@ export default function App() {
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-sm font-bold text-amber-950">
-                    Cần xác thực tên miền trên Firebase để Đăng nhập Google
+                    Đăng nhập trực tiếp (Bỏ qua Firebase bị chặn)
                   </h4>
                   <p className="text-xs text-amber-900 leading-relaxed max-w-3xl">
-                    Google Firebase yêu cầu cấp phép tên miền <code className="bg-amber-100 text-amber-950 px-1.5 py-0.5 rounded font-mono font-semibold">renktruong.github.io</code> trước khi cho phép đăng nhập tài khoản Google từ trang web này.
+                    Firebase trên GitHub Pages cần quyền thêm domain. Bạn <strong>không cần Firebase</strong> vẫn có thể đăng nhập đầy đủ quyền Chủ tài khoản hoặc các vai trò nhân viên ngay tại đây:
                   </p>
                 </div>
               </div>
@@ -400,25 +479,31 @@ export default function App() {
               </button>
             </div>
 
-            <div className="bg-white/80 rounded-xl p-3 border border-amber-200/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="bg-white/90 rounded-xl p-3 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
               <div className="space-y-0.5">
                 <div className="font-semibold text-slate-800">
-                  Cách cấp quyền: Nhấp vào liên kết bên cạnh &gt; Chọn "Add domain" &gt; Nhập: <span className="font-mono font-bold text-emerald-700 select-all">renktruong.github.io</span>
+                  Khuyên dùng cho GitHub Pages:
                 </div>
                 <div className="text-slate-500">
-                  Sau khi thêm, bạn có thể bấm Đăng nhập Google để đồng bộ dữ liệu vào Google Drive.
+                  Nhấn nút bên cạnh để đăng nhập ngay với tư cách Chủ sở hữu <span className="font-mono font-bold text-emerald-700">{OWNER_EMAIL}</span>
                 </div>
               </div>
 
-              <a
-                href="https://console.firebase.google.com/project/pivotal-beach-kf38q/authentication/settings"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs whitespace-nowrap transition-colors"
-              >
-                Mở Cài Đặt Firebase
-                <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
-              </a>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleEmailLogin(OWNER_EMAIL, 'Trúc Giàu Trương (Chủ tài khoản)')}
+                  className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs whitespace-nowrap transition-colors"
+                >
+                  <Crown className="w-3.5 h-3.5 mr-1.5" />
+                  Đăng nhập {OWNER_EMAIL}
+                </button>
+                <button
+                  onClick={() => setIsQuickLoginOpen(true)}
+                  className="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs whitespace-nowrap transition-colors"
+                >
+                  Chọn tài khoản khác
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -444,11 +529,11 @@ export default function App() {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">
-                {isGuestBlocked ? 'Yêu Cầu Đăng Nhập Google' : 'Truy Cập Bị Giới Hạn'}
+                {isGuestBlocked ? 'Yêu Cầu Đăng Nhập' : 'Truy Cập Bị Giới Hạn'}
               </h3>
               <p className="text-sm text-slate-500 mt-1">
                 {isGuestBlocked ? (
-                  'Chế độ xem chưa đăng nhập chỉ cho phép xem Sheet Tồn kho. Vui lòng đăng nhập tài khoản Google để được mở khóa theo phân quyền.'
+                  'Chế độ xem chưa đăng nhập chỉ cho phép xem Sheet Tồn kho. Vui lòng đăng nhập để được mở khóa theo phân quyền của bạn.'
                 ) : (
                   <>
                     Tài khoản <strong className="text-slate-800">{currentUserRole.fullName}</strong> ({currentUserRole.roleName}) không có quyền xem sheet này.
@@ -457,12 +542,22 @@ export default function App() {
               </p>
             </div>
             {isGuestBlocked ? (
-              <button
-                onClick={handleGoogleLogin}
-                className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
-              >
-                Đăng nhập Google để xem
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <button
+                  onClick={() => handleEmailLogin(OWNER_EMAIL, 'Trúc Giàu Trương (Chủ tài khoản)')}
+                  className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors"
+                >
+                  <Crown className="w-3.5 h-3.5 mr-1.5" />
+                  Đăng nhập Chủ sở hữu ({OWNER_EMAIL})
+                </button>
+                <button
+                  onClick={() => setIsQuickLoginOpen(true)}
+                  className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors"
+                >
+                  <LogIn className="w-3.5 h-3.5 mr-1.5" />
+                  Đăng nhập tài khoản khác
+                </button>
+              </div>
             ) : (
               <p className="text-xs text-slate-400">
                 Vui lòng liên hệ Chủ tài khoản ({OWNER_EMAIL}) để được phân quyền mở khóa.
@@ -583,6 +678,15 @@ export default function App() {
         onConfirmCreateOrSync={handleCreateOrSyncGoogleSheet}
         user={user}
         onLogin={handleGoogleLogin}
+      />
+
+      {/* Direct / Quick Login Modal for GitHub Pages */}
+      <QuickLoginModal
+        isOpen={isQuickLoginOpen}
+        onClose={() => setIsQuickLoginOpen(false)}
+        users={users}
+        onSelectUser={handleEmailLogin}
+        onGoogleLogin={handleGoogleLogin}
       />
     </div>
   );

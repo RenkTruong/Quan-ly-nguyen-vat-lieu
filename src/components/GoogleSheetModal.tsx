@@ -10,7 +10,10 @@ import {
   ShieldAlert,
   ArrowRight
 } from 'lucide-react';
-import { User } from 'firebase/auth';
+interface ModalUser {
+  email: string | null;
+  displayName?: string | null;
+}
 
 interface GoogleSheetModalProps {
   isOpen: boolean;
@@ -20,7 +23,7 @@ interface GoogleSheetModalProps {
   lastSyncedAt: string | null;
   isCreating: boolean;
   onConfirmCreateOrSync: () => Promise<void>;
-  user: User | null;
+  user: ModalUser | null;
   onLogin: () => void;
 }
 
