@@ -30,7 +30,7 @@ import { DashboardSheet } from './components/DashboardSheet';
 import { PermissionsSheet } from './components/PermissionsSheet';
 import { SupplierSheet } from './components/SupplierSheet';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
-import { Lock, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Lock, FileSpreadsheet, AlertTriangle, XCircle, ExternalLink } from 'lucide-react';
 
 export default function App() {
   // Auth state
@@ -203,6 +203,31 @@ export default function App() {
     }
   };
 
+  // Auth handler with friendly error display
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+
+  const handleGoogleLogin = async () => {
+    setAuthErrorMessage(null);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      console.error('Google Sign-In failed:', err);
+      const code = err?.code || '';
+      if (code === 'auth/unauthorized-domain') {
+        setAuthErrorMessage(
+          'Tên miền GitHub Pages (renktruong.github.io) chưa được thêm vào danh sách "Authorized Domains" trong Firebase Authentication. Vui lòng thêm "renktruong.github.io" vào Firebase Console > Authentication > Settings > Authorized domains.'
+        );
+      } else if (code === 'auth/popup-blocked') {
+        setAuthErrorMessage('Trình duyệt đã chặn cửa sổ Popup đăng nhập. Vui lòng cho phép Pop-up trên trình duyệt.');
+      } else if (code === 'auth/popup-closed-by-user') {
+        // User closed popup, no need to show scary error
+        console.log('User closed popup');
+      } else {
+        setAuthErrorMessage(err?.message || 'Đăng nhập Google không thành công. Vui lòng thử lại.');
+      }
+    }
+  };
+
   // Google Sheets Integration Handlers
   const handleCreateOrSyncGoogleSheet = async () => {
     let token = getCachedAccessToken();
@@ -262,7 +287,7 @@ export default function App() {
         currentUserRole={currentUserRole}
         allUserRoles={users}
         onSelectUserRole={handleSelectRole}
-        onLogin={signInWithGoogle}
+        onLogin={handleGoogleLogin}
         onLogout={signOutUser}
         isLoggingIn={isAuthLoading}
         spreadsheetId={spreadsheetId}
@@ -271,6 +296,30 @@ export default function App() {
         onCreateOrSyncSheet={() => setIsSheetModalOpen(true)}
         lastSyncedAt={lastSyncedAt}
       />
+
+      {/* Auth Error Banner if domain is not authorized in Firebase */}
+      {authErrorMessage && (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-start space-x-3 text-amber-900 shadow-xs">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs sm:text-sm space-y-1">
+              <div className="font-bold flex items-center justify-between">
+                <span>Thông báo kết nối tài khoản Google:</span>
+                <button
+                  onClick={() => setAuthErrorMessage(null)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-amber-800 leading-relaxed">{authErrorMessage}</p>
+              <div className="pt-1 text-xs text-amber-700">
+                <strong>Gợi ý:</strong> Bạn vẫn có thể sử dụng 100% đầy đủ chức năng của app (Nhập, Xuất, Tồn kho, Biểu đồ, Quản lý NCC, Phân quyền) bằng bộ mô phỏng vai trò (Role Switcher) ở góc trên bên phải thanh menu.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Workspace Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -406,7 +455,7 @@ export default function App() {
         isCreating={isCreatingSheet}
         onConfirmCreateOrSync={handleCreateOrSyncGoogleSheet}
         user={user}
-        onLogin={signInWithGoogle}
+        onLogin={handleGoogleLogin}
       />
     </div>
   );
