@@ -5,6 +5,7 @@ import {
   ExportRecord, 
   Supplier, 
   UserRole, 
+  RoleDefinition,
   SheetId 
 } from './types/inventory';
 import { 
@@ -12,7 +13,9 @@ import {
   initialExports, 
   initialSuppliers, 
   initialUsers, 
-  initialMinStocks 
+  initialMinStocks,
+  initialRoleDefinitions,
+  OWNER_EMAIL
 } from './data/initialData';
 import { 
   signInWithGoogle, 
@@ -58,14 +61,25 @@ export default function App() {
     return saved ? JSON.parse(saved) : initialUsers;
   });
 
+  const [roleDefinitions, setRoleDefinitions] = useState<RoleDefinition[]>(() => {
+    const saved = localStorage.getItem('nvl_role_defs');
+    return saved ? JSON.parse(saved) : initialRoleDefinitions;
+  });
+
   const [minStocks, setMinStocks] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem('nvl_min_stocks');
     return saved ? JSON.parse(saved) : initialMinStocks;
   });
 
-  // Role & Tab state
+  // Role & Tab state: Default tab is 'tonKho' when not logged in
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(initialUsers[0]);
-  const [activeTab, setActiveTab] = useState<SheetId>('nhap');
+  const [activeTab, setActiveTab] = useState<SheetId>('tonKho');
+
+  // Check if current logged-in user is the Owner (trucgiau.truong@gmail.com)
+  const isOwner = useMemo(() => {
+    if (!user?.email) return false;
+    return user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+  }, [user]);
 
   // Google Sheets integration state
   const [spreadsheetId, setSpreadsheetId] = useState<string | null>(() => {
@@ -98,6 +112,10 @@ export default function App() {
   }, [users]);
 
   useEffect(() => {
+    localStorage.setItem('nvl_role_defs', JSON.stringify(roleDefinitions));
+  }, [roleDefinitions]);
+
+  useEffect(() => {
     localStorage.setItem('nvl_min_stocks', JSON.stringify(minStocks));
   }, [minStocks]);
 
@@ -109,22 +127,39 @@ export default function App() {
 
       if (firebaseUser?.email) {
         // Find or map user in our role system
-        const matched = users.find((u) => u.email.toLowerCase() === firebaseUser.email?.toLowerCase());
+        const userEmailLower = firebaseUser.email.toLowerCase();
+        const matched = users.find((u) => u.email.toLowerCase() === userEmailLower);
         if (matched) {
           setCurrentUserRole(matched);
+        } else if (userEmailLower === OWNER_EMAIL.toLowerCase()) {
+          // If Owner logs in but not matched, give admin role
+          const ownerObj: UserRole = {
+            email: firebaseUser.email,
+            fullName: firebaseUser.displayName || 'Trúc Giàu Trương (Chủ tài khoản)',
+            role: 'admin',
+            roleName: 'Quản trị viên cấp cao (Chủ sở hữu)',
+            sheets: initialRoleDefinitions[0].defaultSheets
+          };
+          setCurrentUserRole(ownerObj);
         } else {
-          // If first time login, set as active role or keep current role mapped to user email
-          setCurrentUserRole((prev) => ({
-            ...prev,
-            email: firebaseUser.email || prev.email,
-            fullName: firebaseUser.displayName || prev.fullName
-          }));
+          // New user not configured by owner: assigned default viewer permissions
+          const defaultViewerObj: UserRole = {
+            email: firebaseUser.email,
+            fullName: firebaseUser.displayName || 'Nhân viên',
+            role: 'viewer',
+            roleName: 'Nhân viên chưa cấu hình (Chỉ xem)',
+            sheets: initialRoleDefinitions[4]?.defaultSheets || initialRoleDefinitions[0].defaultSheets
+          };
+          setCurrentUserRole(defaultViewerObj);
         }
+      } else {
+        // Logged out: fallback to viewer and enforce 'tonKho' tab
+        setActiveTab('tonKho');
       }
     });
 
     return () => unsubscribe();
-  }, [users]);
+  }, [users, roleDefinitions]);
 
   // Calculate current stock for each product code
   const inventoryMap = useMemo(() => {
@@ -189,6 +224,18 @@ export default function App() {
 
   const handleAddUser = (newUser: UserRole) => {
     setUsers((prev) => [...prev, newUser]);
+  };
+
+  const handleDeleteUser = (email: string) => {
+    setUsers((prev) => prev.filter((u) => u.email.toLowerCase() !== email.toLowerCase()));
+  };
+
+  const handleAddRoleDefinition = (newRole: RoleDefinition) => {
+    setRoleDefinitions((prev) => [...prev, newRole]);
+  };
+
+  const handleDeleteRoleDefinition = (roleId: string) => {
+    setRoleDefinitions((prev) => prev.filter((r) => r.id !== roleId));
   };
 
   const handleSelectRole = (role: UserRole) => {
@@ -270,7 +317,9 @@ export default function App() {
 
   // Current sheet permission
   const currentSheetPermission = currentUserRole.sheets[activeTab];
-  const isCurrentTabHidden = currentSheetPermission?.access === 'hidden';
+  // If not logged in, user can ONLY view 'tonKho'; all other sheets are blocked
+  const isGuestBlocked = !user && activeTab !== 'tonKho';
+  const isCurrentTabHidden = isGuestBlocked || currentSheetPermission?.access === 'hidden';
 
   const reorderCount = Array.from(inventoryMap.entries()).filter(([code, item]) => {
     const min = minStocks[code] ?? 10;
@@ -297,25 +346,79 @@ export default function App() {
         lastSyncedAt={lastSyncedAt}
       />
 
+      {/* Guest Notice Banner if not logged in */}
+      {!user && (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 text-blue-700 rounded-xl">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-blue-950 text-sm block">
+                  Chế độ Khách: Chỉ được xem Sheet Tồn kho
+                </span>
+                <span className="text-blue-800">
+                  Vui lòng bấm <strong>"Đăng nhập Google"</strong> ở góc phải để mở khóa toàn bộ quyền hạn theo phân quyền tài khoản của bạn.
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleGoogleLogin}
+              className="inline-flex items-center px-3.5 py-1.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors whitespace-nowrap"
+            >
+              Đăng nhập Google ngay
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Auth Error Banner if domain is not authorized in Firebase */}
       {authErrorMessage && (
         <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-start space-x-3 text-amber-900 shadow-xs">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 text-xs sm:text-sm space-y-1">
-              <div className="font-bold flex items-center justify-between">
-                <span>Thông báo kết nối tài khoản Google:</span>
-                <button
-                  onClick={() => setAuthErrorMessage(null)}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <XCircle className="w-4 h-4" />
-                </button>
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300/80 rounded-2xl p-4.5 shadow-sm space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-xl bg-amber-100/80 text-amber-700 flex-shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-amber-950">
+                    Cần xác thực tên miền trên Firebase để Đăng nhập Google
+                  </h4>
+                  <p className="text-xs text-amber-900 leading-relaxed max-w-3xl">
+                    Google Firebase yêu cầu cấp phép tên miền <code className="bg-amber-100 text-amber-950 px-1.5 py-0.5 rounded font-mono font-semibold">renktruong.github.io</code> trước khi cho phép đăng nhập tài khoản Google từ trang web này.
+                  </p>
+                </div>
               </div>
-              <p className="text-amber-800 leading-relaxed">{authErrorMessage}</p>
-              <div className="pt-1 text-xs text-amber-700">
-                <strong>Gợi ý:</strong> Bạn vẫn có thể sử dụng 100% đầy đủ chức năng của app (Nhập, Xuất, Tồn kho, Biểu đồ, Quản lý NCC, Phân quyền) bằng bộ mô phỏng vai trò (Role Switcher) ở góc trên bên phải thanh menu.
+              <button
+                onClick={() => setAuthErrorMessage(null)}
+                className="p-1 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100/60 transition-colors"
+                title="Đóng thông báo"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-white/80 rounded-xl p-3 border border-amber-200/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="space-y-0.5">
+                <div className="font-semibold text-slate-800">
+                  Cách cấp quyền: Nhấp vào liên kết bên cạnh &gt; Chọn "Add domain" &gt; Nhập: <span className="font-mono font-bold text-emerald-700 select-all">renktruong.github.io</span>
+                </div>
+                <div className="text-slate-500">
+                  Sau khi thêm, bạn có thể bấm Đăng nhập Google để đồng bộ dữ liệu vào Google Drive.
+                </div>
               </div>
+
+              <a
+                href="https://console.firebase.google.com/project/pivotal-beach-kf38q/authentication/settings"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs whitespace-nowrap transition-colors"
+              >
+                Mở Cài Đặt Firebase
+                <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+              </a>
             </div>
           </div>
         </div>
@@ -330,6 +433,7 @@ export default function App() {
           currentUserRole={currentUserRole}
           reorderCount={reorderCount}
           expiredCount={expiredCount}
+          isLoggedIn={!!user}
         />
 
         {/* Content Area with Role-Based Access Enforcement */}
@@ -339,14 +443,31 @@ export default function App() {
               <Lock className="w-8 h-8" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Truy Cập Bị Giới Hạn</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                {isGuestBlocked ? 'Yêu Cầu Đăng Nhập Google' : 'Truy Cập Bị Giới Hạn'}
+              </h3>
               <p className="text-sm text-slate-500 mt-1">
-                Tài khoản <strong className="text-slate-800">{currentUserRole.fullName}</strong> ({currentUserRole.roleName}) không có quyền xem sheet này.
+                {isGuestBlocked ? (
+                  'Chế độ xem chưa đăng nhập chỉ cho phép xem Sheet Tồn kho. Vui lòng đăng nhập tài khoản Google để được mở khóa theo phân quyền.'
+                ) : (
+                  <>
+                    Tài khoản <strong className="text-slate-800">{currentUserRole.fullName}</strong> ({currentUserRole.roleName}) không có quyền xem sheet này.
+                  </>
+                )}
               </p>
             </div>
-            <p className="text-xs text-slate-400">
-              Vui lòng liên hệ Quản trị viên hệ thống để được cấp quyền mở khóa.
-            </p>
+            {isGuestBlocked ? (
+              <button
+                onClick={handleGoogleLogin}
+                className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+              >
+                Đăng nhập Google để xem
+              </button>
+            ) : (
+              <p className="text-xs text-slate-400">
+                Vui lòng liên hệ Chủ tài khoản ({OWNER_EMAIL}) để được phân quyền mở khóa.
+              </p>
+            )}
           </div>
         ) : (
           <div>
@@ -401,8 +522,14 @@ export default function App() {
               <PermissionsSheet
                 users={users}
                 currentUserRole={currentUserRole}
+                isOwner={isOwner}
+                loggedInEmail={user?.email}
+                roleDefinitions={roleDefinitions}
                 onUpdateUserRole={handleUpdateUserRole}
                 onAddUser={handleAddUser}
+                onDeleteUser={handleDeleteUser}
+                onAddRoleDefinition={handleAddRoleDefinition}
+                onDeleteRoleDefinition={handleDeleteRoleDefinition}
                 onSelectActiveRole={handleSelectRole}
               />
             )}

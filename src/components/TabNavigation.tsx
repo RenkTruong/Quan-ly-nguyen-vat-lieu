@@ -18,6 +18,7 @@ interface TabNavigationProps {
   currentUserRole: UserRole;
   reorderCount: number;
   expiredCount: number;
+  isLoggedIn: boolean;
 }
 
 export const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -25,7 +26,8 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   onTabChange,
   currentUserRole,
   reorderCount,
-  expiredCount
+  expiredCount,
+  isLoggedIn
 }) => {
   const tabs = [
     {
@@ -83,7 +85,9 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const sheetPerm = currentUserRole.sheets[tab.key];
-            const isHidden = sheetPerm?.access === 'hidden';
+            // If not logged in, only 'tonKho' is accessible; other tabs are locked
+            const isBlockedByGuest = !isLoggedIn && tab.key !== 'tonKho';
+            const isHidden = sheetPerm?.access === 'hidden' || isBlockedByGuest;
             const isActive = activeTab === tab.key;
 
             if (isHidden) {
@@ -91,10 +95,15 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 <div
                   key={tab.key}
                   className="flex items-center space-x-2 px-3.5 py-2.5 rounded-lg text-xs font-medium text-slate-400 bg-slate-100/70 border border-dashed border-slate-200 cursor-not-allowed opacity-60"
-                  title="Tài khoản của bạn không có quyền xem Sheet này"
+                  title={isBlockedByGuest ? 'Cần đăng nhập Google để xem sheet này' : 'Tài khoản của bạn không có quyền xem Sheet này'}
                 >
                   <Lock className="w-3.5 h-3.5" />
                   <span>{tab.title}</span>
+                  {isBlockedByGuest && (
+                    <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded ml-1 font-semibold">
+                      Yêu cầu đăng nhập
+                    </span>
+                  )}
                 </div>
               );
             }

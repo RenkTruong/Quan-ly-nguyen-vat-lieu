@@ -67,10 +67,18 @@ export interface SheetPermission {
   columns: Record<string, PermissionLevel>;
 }
 
+export interface RoleDefinition {
+  id: string;          // e.g. 'admin', 'warehouse_manager', 'custom_role_1'
+  name: string;        // e.g. 'Quản trị viên cấp cao', 'Thủ kho'
+  description?: string;
+  isSystem?: boolean;  // true if built-in, false if created by owner
+  defaultSheets: Record<string, SheetPermission>;
+}
+
 export interface UserRole {
   email: string;
   fullName: string;
-  role: 'admin' | 'warehouse_manager' | 'warehouse_staff' | 'accountant' | 'viewer';
+  role: string;
   roleName: string;
   sheets: Record<string, SheetPermission>;
 }

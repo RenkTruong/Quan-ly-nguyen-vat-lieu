@@ -1,4 +1,94 @@
-import { ImportRecord, ExportRecord, Supplier, UserRole } from '../types/inventory';
+import { ImportRecord, ExportRecord, Supplier, UserRole, RoleDefinition } from '../types/inventory';
+
+export const OWNER_EMAIL = 'trucgiau.truong@gmail.com';
+
+export const INITIAL_ROLE_DEFINITIONS: RoleDefinition[] = [
+  {
+    id: 'admin',
+    name: 'Quản trị viên cấp cao',
+    description: 'Toàn quyền cấu hình, quản lý người dùng, nhập/xuất và phân quyền',
+    isSystem: true,
+    defaultSheets: {
+      nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'edit', columns: {} },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'edit', columns: {} },
+      tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'edit', columns: {} },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'edit', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'edit', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'edit', columns: {} }
+    }
+  },
+  {
+    id: 'warehouse_manager',
+    name: 'Quản lý Kho vận',
+    description: 'Quản lý nhập xuất hàng, danh bạ nhà cung cấp và xem báo cáo',
+    isSystem: true,
+    defaultSheets: {
+      nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'edit', columns: {} },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'edit', columns: {} },
+      tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'edit', columns: {} },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'view', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'view', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'edit', columns: {} }
+    }
+  },
+  {
+    id: 'warehouse_staff',
+    name: 'Thủ kho phụ trách Nhập / Xuất',
+    description: 'Thao tác nhập xuất vật tư hàng ngày, ẩn cột giá nhập và chi phí',
+    isSystem: true,
+    defaultSheets: {
+      nhap: { 
+        sheetId: 'nhap', 
+        sheetName: 'Lịch sử Nhập hàng', 
+        access: 'edit', 
+        columns: {
+          donGiaNhap: 'hidden',
+          thanhTien: 'hidden'
+        } 
+      },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'edit', columns: {} },
+      tonKho: { 
+        sheetId: 'tonKho', 
+        sheetName: 'Báo cáo Tồn kho', 
+        access: 'view', 
+        columns: {
+          chiPhiNhap: 'hidden'
+        } 
+      },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'view', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'view', columns: { stkNganHang: 'hidden' } }
+    }
+  },
+  {
+    id: 'accountant',
+    name: 'Kế toán Nguyên vật liệu',
+    description: 'Theo dõi đơn giá, thành tiền, chi phí nhập và thông tin đối tác',
+    isSystem: true,
+    defaultSheets: {
+      nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'view', columns: {} },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'view', columns: {} },
+      tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'view', columns: {} },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'view', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'edit', columns: {} }
+    }
+  },
+  {
+    id: 'viewer',
+    name: 'Nhân viên chỉ xem',
+    description: 'Chỉ được xem các sheet nghiệp vụ cơ bản, không có quyền chỉnh sửa',
+    isSystem: true,
+    defaultSheets: {
+      nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'view', columns: {} },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'view', columns: {} },
+      tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'view', columns: {} },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'view', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'view', columns: {} }
+    }
+  }
+];
 
 export const INITIAL_SUPPLIERS: Supplier[] = [
   {
@@ -277,3 +367,4 @@ export const initialImports = INITIAL_IMPORTS;
 export const initialExports = INITIAL_EXPORTS;
 export const initialUsers = INITIAL_USERS;
 export const initialMinStocks = INITIAL_MIN_STOCKS;
+export const initialRoleDefinitions = INITIAL_ROLE_DEFINITIONS;
