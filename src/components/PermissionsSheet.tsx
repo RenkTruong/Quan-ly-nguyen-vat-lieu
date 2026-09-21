@@ -150,6 +150,21 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
     onUpdateUserRole(updatedUser);
   };
 
+  // Gán nhanh vai trò mẫu cho user đang chọn
+  const handleApplyRoleToSelectedUser = (roleDefId: string) => {
+    if (!selectedUser || !isOwner) return;
+    const matchedDef = roleDefinitions.find((r) => r.id === roleDefId);
+    if (!matchedDef) return;
+
+    const updatedUser: UserRole = {
+      ...selectedUser,
+      role: matchedDef.id,
+      roleName: matchedDef.name,
+      sheets: JSON.parse(JSON.stringify(matchedDef.defaultSheets))
+    };
+    onUpdateUserRole(updatedUser);
+  };
+
   // Tạo người dùng mới
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -399,7 +414,25 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                   </p>
                 </div>
 
-                {!isOwner && (
+                {isOwner ? (
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor={`${uniqueId}-quick-role`} className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                      Gán vai trò mẫu:
+                    </label>
+                    <select
+                      id={`${uniqueId}-quick-role`}
+                      value={selectedUser?.role || ''}
+                      onChange={(e) => handleApplyRoleToSelectedUser(e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800 bg-slate-50 hover:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                    >
+                      {roleDefinitions.map((rd) => (
+                        <option key={rd.id} value={rd.id}>
+                          {rd.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
                   <div className="text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
                     Chỉ Chủ tài khoản mới được chỉnh sửa phân quyền
                   </div>

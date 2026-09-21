@@ -86,7 +86,13 @@ export default function App() {
     const saved = localStorage.getItem('nvl_users');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: UserRole[] = JSON.parse(saved);
+        const existingEmails = new Set(parsed.map((u) => u.email.toLowerCase()));
+        const missing = initialUsers.filter((u) => !existingEmails.has(u.email.toLowerCase()));
+        if (missing.length > 0) {
+          return [...parsed, ...missing];
+        }
+        return parsed;
       } catch (e) {
         console.error(e);
       }
@@ -349,6 +355,15 @@ export default function App() {
 
   const handleSelectRole = (role: UserRole) => {
     setCurrentUserRole(role);
+    try {
+      localStorage.setItem('nvl_session_user', JSON.stringify({
+        email: role.email,
+        displayName: role.fullName,
+        photoURL: null
+      }));
+    } catch (e) {
+      console.error(e);
+    }
     // If switched to a role that does not have access to current tab, switch to first visible tab
     const access = role.sheets[activeTab]?.access;
     if (access === 'hidden') {
