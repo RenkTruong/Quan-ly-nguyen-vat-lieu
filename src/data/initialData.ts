@@ -32,19 +32,30 @@ export const INITIAL_ROLE_DEFINITIONS: RoleDefinition[] = [
     }
   },
   {
+    id: 'warehouse_creator',
+    name: 'Nhân viên Tạo mới (Chỉ thêm phiếu)',
+    description: 'Chỉ được tạo thêm phiếu nhập và phiếu xuất mới, hoàn toàn không được sửa hoặc xóa các phiếu đã tạo',
+    isSystem: true,
+    defaultSheets: {
+      nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'create', columns: {} },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'create', columns: {} },
+      tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'view', columns: {} },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'view', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'view', columns: {} }
+    }
+  },
+  {
     id: 'warehouse_staff',
     name: 'Thủ kho phụ trách Nhập / Xuất',
-    description: 'Thao tác nhập xuất vật tư hàng ngày, ẩn cột giá nhập và chi phí',
+    description: 'Thao tác nhập xuất vật tư hàng ngày, hiển thị đầy đủ thông tin nhập xuất',
     isSystem: true,
     defaultSheets: {
       nhap: { 
         sheetId: 'nhap', 
         sheetName: 'Lịch sử Nhập hàng', 
         access: 'edit', 
-        columns: {
-          donGiaNhap: 'hidden',
-          thanhTien: 'hidden'
-        } 
+        columns: {} 
       },
       xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'edit', columns: {} },
       tonKho: { 
@@ -340,10 +351,7 @@ export const INITIAL_USERS: UserRole[] = [
         sheetId: 'nhap', 
         sheetName: 'Lịch sử Nhập hàng', 
         access: 'edit', 
-        columns: {
-          donGiaNhap: 'hidden',
-          thanhTien: 'hidden'
-        } 
+        columns: {} 
       },
       xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'edit', columns: {} },
       tonKho: { 
@@ -357,6 +365,20 @@ export const INITIAL_USERS: UserRole[] = [
       dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'view', columns: {} },
       phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
       ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'view', columns: { stkNganHang: 'hidden' } }
+    }
+  },
+  {
+    email: 'tranthic@gmail.com',
+    fullName: 'Trần Thị C (Nhân viên Nhập Xuất Mới)',
+    role: 'warehouse_creator',
+    roleName: 'Nhân viên Tạo mới (Chỉ thêm phiếu)',
+    sheets: {
+      nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'create', columns: {} },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'create', columns: {} },
+      tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'view', columns: {} },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'view', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'view', columns: {} }
     }
   },
   {

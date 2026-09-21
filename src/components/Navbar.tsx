@@ -175,11 +175,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
                                 access === 'edit'
                                   ? 'bg-emerald-500/20 text-emerald-300'
+                                  : access === 'create'
+                                  ? 'bg-amber-500/20 text-amber-300'
                                   : access === 'view'
                                   ? 'bg-blue-500/20 text-blue-300'
                                   : 'bg-rose-500/20 text-rose-300'
                               }`}>
-                                {access === 'edit' ? 'Xem & Sửa' : access === 'view' ? 'Chỉ xem' : 'Khóa'}
+                                {access === 'edit' ? 'Xem & Sửa' : access === 'create' ? 'Chỉ thêm' : access === 'view' ? 'Chỉ xem' : 'Khóa'}
                               </span>
                             </div>
                           );

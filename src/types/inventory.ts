@@ -50,7 +50,7 @@ export interface Supplier {
   ghiChu?: string;
 }
 
-export type PermissionLevel = 'view' | 'edit' | 'hidden';
+export type PermissionLevel = 'view' | 'create' | 'edit' | 'hidden';
 
 export type SheetId = 'nhap' | 'xuat' | 'tonKho' | 'dashboard' | 'phanQuyen' | 'ncc';
 

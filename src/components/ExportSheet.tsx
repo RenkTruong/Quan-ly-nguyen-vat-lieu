@@ -50,11 +50,16 @@ export const ExportSheet: React.FC<ExportSheetProps> = ({
   const tonKhoHienTai = inventoryMap.get(selectedCode)?.tonKho ?? 0;
 
   const canEdit = sheetPermission?.access === 'edit';
+  const canCreate = sheetPermission?.access === 'edit' || sheetPermission?.access === 'create';
 
   const isOverStock = typeof soLuongXuat === 'number' && soLuongXuat > tonKhoHienTai;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreate) {
+      alert('Tài khoản của bạn không có quyền tạo phiếu xuất!');
+      return;
+    }
     if (!selectedCode) {
       alert('Vui lòng chọn Mã hàng hóa từ danh sách đã nhập');
       return;
@@ -100,18 +105,23 @@ export const ExportSheet: React.FC<ExportSheetProps> = ({
       {/* Header Info & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">2. Sheet Xuất: Lịch Sử Xuất Hàng</h2>
             <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-medium">
               {exports.length} phiếu xuất
             </span>
+            {sheetPermission?.access === 'create' && (
+              <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs px-2.5 py-0.5 rounded-full font-semibold">
+                Quyền: Chỉ thêm mới (Không sửa / xóa phiếu đã tạo)
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-500 mt-1">
             Dropdown Mã hàng hóa từ Sheet Nhập &bull; Tự động truy xuất Tên hàng hóa &amp; ĐVT qua công thức &bull; Tự động thời gian &amp; người xuất
           </p>
         </div>
 
-        {canEdit && (
+        {canCreate && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition-colors cursor-pointer"
@@ -122,8 +132,8 @@ export const ExportSheet: React.FC<ExportSheetProps> = ({
         )}
       </div>
 
-      {/* Form Tạo Phiếu Xuất */}
-      {showAddForm && canEdit && (
+      {/* Form Thêm Phiếu Xuất */}
+      {showAddForm && canCreate && (
         <form
           onSubmit={handleSubmit}
           className="bg-amber-50/40 border border-amber-200 rounded-2xl p-6 shadow-sm space-y-4"

@@ -12,7 +12,8 @@ import {
   Crown,
   Layers,
   Check,
-  AlertCircle
+  AlertCircle,
+  PlusCircle
 } from 'lucide-react';
 import { UserRole, PermissionLevel, RoleDefinition } from '../types/inventory';
 import { OWNER_EMAIL } from '../data/initialData';
@@ -98,6 +99,7 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
   // Handler cập nhật quyền cấp Cột cho User
   const handleColumnAccessChange = (sheetKey: string, columnId: string, level: PermissionLevel) => {
     if (!selectedUser || !isOwner) return;
+
     const currentSheet = selectedUser.sheets[sheetKey] || {
       sheetId: sheetKey as any,
       sheetName: sheetKey,
@@ -114,6 +116,33 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
           columns: {
             ...currentSheet.columns,
             [columnId]: level
+          }
+        }
+      }
+    };
+    onUpdateUserRole(updatedUser);
+  };
+
+  // Handler cập nhật đồng thời nhiều quyền cấp Cột cho User (tránh race condition / ghi đè state)
+  const handleMultiColumnAccessChange = (sheetKey: string, columnMap: Record<string, PermissionLevel>) => {
+    if (!selectedUser || !isOwner) return;
+
+    const currentSheet = selectedUser.sheets[sheetKey] || {
+      sheetId: sheetKey as any,
+      sheetName: sheetKey,
+      access: 'view',
+      columns: {}
+    };
+
+    const updatedUser: UserRole = {
+      ...selectedUser,
+      sheets: {
+        ...selectedUser.sheets,
+        [sheetKey]: {
+          ...currentSheet,
+          columns: {
+            ...currentSheet.columns,
+            ...columnMap
           }
         }
       }
@@ -398,7 +427,13 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                             {perm === 'edit' && (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
                                 <Edit3 className="w-3 h-3 mr-1" />
-                                Xem &amp; Chỉnh sửa
+                                Toàn quyền (Sửa &amp; Xóa)
+                              </span>
+                            )}
+                            {perm === 'create' && (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                <PlusCircle className="w-3 h-3 mr-1 text-amber-600" />
+                                Thêm (Chỉ tạo mới, không sửa/xóa)
                               </span>
                             )}
                             {perm === 'view' && (
@@ -418,7 +453,9 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                             {isOwner ? (
                               <div className="inline-flex rounded-lg shadow-2xs border border-slate-200 overflow-hidden">
                                 <button
+                                  type="button"
                                   onClick={() => handleSheetAccessChange(sh.key, 'edit')}
+                                  title="Toàn quyền: Xem, Thêm mới, Sửa và Xóa các phiếu"
                                   className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
                                     perm === 'edit' ? 'bg-emerald-600 text-white font-bold' : 'bg-white hover:bg-slate-50 text-slate-700'
                                   }`}
@@ -426,7 +463,19 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                                   Sửa
                                 </button>
                                 <button
+                                  type="button"
+                                  onClick={() => handleSheetAccessChange(sh.key, 'create')}
+                                  title="Chỉ thêm mới: Chỉ được tạo thêm phiếu, không được sửa hoặc xóa các phiếu đã tạo"
+                                  className={`px-2.5 py-1 text-[11px] font-medium border-l border-slate-200 transition-colors ${
+                                    perm === 'create' ? 'bg-amber-600 text-white font-bold' : 'bg-white hover:bg-slate-50 text-slate-700'
+                                  }`}
+                                >
+                                  Thêm
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => handleSheetAccessChange(sh.key, 'view')}
+                                  title="Chỉ xem: Không được tạo, sửa hoặc xóa"
                                   className={`px-2.5 py-1 text-[11px] font-medium border-l border-r border-slate-200 transition-colors ${
                                     perm === 'view' ? 'bg-blue-600 text-white font-bold' : 'bg-white hover:bg-slate-50 text-slate-700'
                                   }`}
@@ -434,7 +483,9 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                                   Xem
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleSheetAccessChange(sh.key, 'hidden')}
+                                  title="Khóa: Ẩn sheet hoàn toàn"
                                   className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
                                     perm === 'hidden' ? 'bg-rose-600 text-white font-bold' : 'bg-white hover:bg-slate-50 text-slate-700'
                                   }`}
@@ -460,43 +511,62 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Cột Đơn giá & Thành tiền */}
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                     <div>
-                      <p className="font-bold text-xs text-slate-800">Cột Đơn giá &amp; Thành tiền (Sheet Nhập)</p>
-                      <p className="text-[11px] text-slate-500">Ẩn thông tin giá vốn đối với nhân viên kho</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-xs text-slate-800">Cột Đơn giá &amp; Thành tiền (Sheet Nhập)</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          selectedUser?.sheets?.nhap?.columns?.donGiaNhap === 'hidden'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        }`}>
+                          {selectedUser?.sheets?.nhap?.columns?.donGiaNhap === 'hidden' ? 'Đang ẩn (***)' : 'Đang hiển thị'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Bảo mật giá vốn: Bấm chọn để ẩn hoặc hiển thị đơn giá &amp; thành tiền cho tài khoản này.
+                      </p>
                     </div>
                     {isOwner ? (
-                      <div className="flex space-x-2">
+                      <div className="flex items-center space-x-2 pt-1">
                         <button
+                          type="button"
                           onClick={() => {
-                            handleColumnAccessChange('nhap', 'donGiaNhap', 'view');
-                            handleColumnAccessChange('nhap', 'thanhTien', 'view');
+                            handleMultiColumnAccessChange('nhap', {
+                              donGiaNhap: 'view',
+                              thanhTien: 'view'
+                            });
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                             selectedUser?.sheets?.nhap?.columns?.donGiaNhap !== 'hidden'
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-white border text-slate-600'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
                           }`}
+                          title="Cho phép tài khoản này xem đơn giá và thành tiền"
                         >
                           Hiển thị
                         </button>
                         <button
+                          type="button"
                           onClick={() => {
-                            handleColumnAccessChange('nhap', 'donGiaNhap', 'hidden');
-                            handleColumnAccessChange('nhap', 'thanhTien', 'hidden');
+                            handleMultiColumnAccessChange('nhap', {
+                              donGiaNhap: 'hidden',
+                              thanhTien: 'hidden'
+                            });
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                             selectedUser?.sheets?.nhap?.columns?.donGiaNhap === 'hidden'
-                              ? 'bg-rose-600 text-white'
-                              : 'bg-white border text-slate-600'
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
                           }`}
+                          title="Bảo mật: Ẩn cột đơn giá và thành tiền (thay bằng ***) đối với tài khoản này"
                         >
                           Ẩn cột (***)
                         </button>
                       </div>
                     ) : (
                       <span className="text-xs font-semibold text-slate-600">
-                        {selectedUser?.sheets?.nhap?.columns?.donGiaNhap === 'hidden' ? 'Đang ẩn (***)' : 'Hiển thị'}
+                        {selectedUser?.sheets?.nhap?.columns?.donGiaNhap === 'hidden' ? 'Đang ẩn (***)' : 'Đang hiển thị'}
                       </span>
                     )}
                   </div>
@@ -615,11 +685,17 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                         {Object.entries(roleDef.defaultSheets).map(([sheetKey, sheetObj]) => (
                           <div key={sheetKey} className="flex items-center space-x-1 text-slate-600">
                             <span className={`w-1.5 h-1.5 rounded-full ${
-                              sheetObj.access === 'edit' ? 'bg-emerald-500' : sheetObj.access === 'view' ? 'bg-blue-500' : 'bg-rose-400'
+                              sheetObj.access === 'edit' 
+                                ? 'bg-emerald-500' 
+                                : sheetObj.access === 'create'
+                                ? 'bg-amber-500'
+                                : sheetObj.access === 'view' 
+                                ? 'bg-blue-500' 
+                                : 'bg-rose-400'
                             }`} />
                             <span className="capitalize">{sheetKey}:</span>
                             <span className="font-semibold text-slate-800">
-                              {sheetObj.access === 'edit' ? 'Sửa' : sheetObj.access === 'view' ? 'Xem' : 'Khóa'}
+                              {sheetObj.access === 'edit' ? 'Sửa' : sheetObj.access === 'create' ? 'Thêm' : sheetObj.access === 'view' ? 'Xem' : 'Khóa'}
                             </span>
                           </div>
                         ))}
@@ -767,7 +843,8 @@ export const PermissionsSheet: React.FC<PermissionsSheetProps> = ({
                         onChange={(e) => setNewRoleSheets(prev => ({ ...prev, [sh.key]: e.target.value as PermissionLevel }))}
                         className="px-2 py-1 rounded border border-slate-300 text-xs bg-white"
                       >
-                        <option value="edit">Xem &amp; Sửa</option>
+                        <option value="edit">Toàn quyền (Xem, Thêm, Sửa, Xóa)</option>
+                        <option value="create">Thêm (Chỉ tạo mới, không sửa/xóa)</option>
                         <option value="view">Chỉ xem</option>
                         <option value="hidden">Không được xem (Khóa)</option>
                       </select>

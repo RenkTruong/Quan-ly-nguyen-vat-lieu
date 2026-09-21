@@ -84,7 +84,14 @@ export default function App() {
 
   const [users, setUsers] = useState<UserRole[]>(() => {
     const saved = localStorage.getItem('nvl_users');
-    return saved ? JSON.parse(saved) : initialUsers;
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return initialUsers;
   });
 
   const [roleDefinitions, setRoleDefinitions] = useState<RoleDefinition[]>(() => {
@@ -95,6 +102,10 @@ export default function App() {
         if (!parsed.some(r => r.id === 'guest')) {
           const guestDef = initialRoleDefinitions.find(r => r.id === 'guest');
           if (guestDef) parsed.push(guestDef);
+        }
+        if (!parsed.some(r => r.id === 'warehouse_creator')) {
+          const creatorDef = initialRoleDefinitions.find(r => r.id === 'warehouse_creator');
+          if (creatorDef) parsed.push(creatorDef);
         }
         return parsed;
       } catch (e) {
@@ -117,7 +128,9 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (parsed?.email) {
           const userEmailLower = parsed.email.toLowerCase();
-          const matched = initialUsers.find((u) => u.email.toLowerCase() === userEmailLower);
+          const storedUsersStr = localStorage.getItem('nvl_users');
+          const effectiveUsers: UserRole[] = storedUsersStr ? JSON.parse(storedUsersStr) : initialUsers;
+          const matched = effectiveUsers.find((u) => u.email.toLowerCase() === userEmailLower);
           if (matched) return matched;
           if (userEmailLower === OWNER_EMAIL.toLowerCase()) {
             return {

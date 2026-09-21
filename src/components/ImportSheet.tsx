@@ -48,8 +48,10 @@ export const ImportSheet: React.FC<ImportSheetProps> = ({
 
   const uniqueId = useId();
 
-  // Kiểm tra quyền
+  // Kiểm tra quyền: edit = toàn quyền, create = chỉ thêm mới (không sửa/xóa)
   const canEdit = sheetPermission?.access === 'edit';
+  const canCreate = sheetPermission?.access === 'edit' || sheetPermission?.access === 'create';
+  // Quyền bảo mật dữ liệu cấp Cột: Ẩn cột đơn giá & thành tiền theo phân quyền tài khoản chỉ định
   const isDonGiaHidden = sheetPermission?.columns?.donGiaNhap === 'hidden';
   const isThanhTienHidden = sheetPermission?.columns?.thanhTien === 'hidden';
 
@@ -72,6 +74,10 @@ export const ImportSheet: React.FC<ImportSheetProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreate) {
+      alert('Tài khoản của bạn không có quyền thêm phiếu nhập!');
+      return;
+    }
     if (!tenHangHoa.trim()) {
       alert('Vui lòng nhập Tên hàng hóa');
       return;
@@ -119,18 +125,29 @@ export const ImportSheet: React.FC<ImportSheetProps> = ({
       {/* Header Info & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">1. Sheet Nhập: Lịch Sử Nhập Hàng</h2>
             <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-medium">
               {imports.length} phiếu nhập
             </span>
+            {sheetPermission?.access === 'create' && (
+              <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs px-2.5 py-0.5 rounded-full font-semibold">
+                Quyền: Chỉ thêm mới (Không sửa / xóa phiếu đã tạo)
+              </span>
+            )}
+            {(isDonGiaHidden || isThanhTienHidden) && (
+              <span className="bg-rose-100 text-rose-800 border border-rose-300 text-xs px-2.5 py-0.5 rounded-full font-semibold inline-flex items-center">
+                <Lock className="w-3 h-3 mr-1 text-rose-600" />
+                Bảo mật: Đã ẩn Đơn giá &amp; Thành tiền
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-500 mt-1">
             Quy chuẩn mã <code className="bg-slate-100 px-1.5 py-0.5 rounded text-emerald-700 font-semibold font-mono text-xs">LL-[2 chữ cái đầu]-[4 số]</code> (Vd: Bột giặt Omo &rarr; LL-BG-0001) &bull; Tự động thời gian &amp; user nhập
           </p>
         </div>
 
-        {canEdit && (
+        {canCreate && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer"
@@ -142,7 +159,7 @@ export const ImportSheet: React.FC<ImportSheetProps> = ({
       </div>
 
       {/* Form Thêm Phiếu Nhập */}
-      {showAddForm && canEdit && (
+      {showAddForm && canCreate && (
         <form
           onSubmit={handleSubmit}
           className="bg-emerald-50/40 border border-emerald-200 rounded-2xl p-6 shadow-sm space-y-4"
@@ -228,31 +245,55 @@ export const ImportSheet: React.FC<ImportSheetProps> = ({
             </div>
 
             {/* Đơn giá nhập */}
-            <div>
-              <label htmlFor={`${uniqueId}-dg`} className="block text-xs font-semibold text-slate-700 mb-1">
-                Đơn Giá Nhập (VNĐ)
-              </label>
-              <input
-                id={`${uniqueId}-dg`}
-                type="number"
-                min="0"
-                step="1000"
-                value={donGiaNhap}
-                onChange={(e) => setDonGiaNhap(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                placeholder="Đơn giá..."
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-              />
-            </div>
+            {!isDonGiaHidden ? (
+              <div>
+                <label htmlFor={`${uniqueId}-dg`} className="block text-xs font-semibold text-slate-700 mb-1">
+                  Đơn Giá Nhập (VNĐ)
+                </label>
+                <input
+                  id={`${uniqueId}-dg`}
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={donGiaNhap}
+                  onChange={(e) => setDonGiaNhap(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  placeholder="Đơn giá..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Đơn Giá Nhập
+                </label>
+                <div className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 font-mono text-xs flex items-center justify-between">
+                  <span>***</span>
+                  <span className="text-[10px] text-slate-400 italic">Bảo mật tài khoản</span>
+                </div>
+              </div>
+            )}
 
             {/* Thành tiền (Số lượng * Đơn giá) */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Thành Tiền (Tự Tính SL * ĐG)
-              </label>
-              <div className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 font-bold text-sm">
-                {formatVND(thanhTien)}
+            {!isThanhTienHidden ? (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Thành Tiền (Tự Tính SL * ĐG)
+                </label>
+                <div className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 font-bold text-sm">
+                  {formatVND(thanhTien)}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Thành Tiền
+                </label>
+                <div className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 font-mono text-xs flex items-center justify-between">
+                  <span>***</span>
+                  <span className="text-[10px] text-slate-400 italic">Bảo mật tài khoản</span>
+                </div>
+              </div>
+            )}
 
             {/* Nhà cung cấp (Chọn từ Sheet Data NCC) */}
             <div>
