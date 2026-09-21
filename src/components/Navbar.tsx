@@ -106,42 +106,101 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Role Display / Switcher */}
+            {/* Role Display / Popup (Chỉ hiển thị đúng vai trò của tài khoản hiện tại) */}
             <div className="relative group">
-              <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs">
+              <button 
+                type="button"
+                className="flex items-center bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg px-2.5 py-1 text-xs transition-colors cursor-pointer"
+                title="Bấm để xem chi tiết vai trò và quyền hạn tài khoản"
+              >
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-400 mr-1.5" />
                 <span className="text-slate-400 mr-1">Vai trò:</span>
-                <span className="font-semibold text-amber-300 max-w-[120px] truncate">
+                <span className="font-semibold text-amber-300 max-w-[130px] truncate">
                   {user ? currentUserRole.roleName : 'Khách (Chỉ xem Tồn kho)'}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
-              </div>
+              </button>
               
-              <div className="absolute right-0 top-full mt-1.5 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-xl py-2 hidden group-hover:block z-50">
-                <div className="px-3 py-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider border-b border-slate-700 mb-1">
-                  {user ? 'Tài khoản & Phân quyền đã cấu hình:' : 'Đăng nhập Google để nhận đúng vai trò:'}
+              {/* Cửa sổ bật lên (popup) CHỈ hiển thị thông tin vai trò của đúng tài khoản này */}
+              <div className="absolute right-0 top-full mt-1.5 w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-3 px-3.5 hidden group-hover:block z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="pb-2 mb-2.5 border-b border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Vai trò tài khoản hiện tại
+                    </span>
+                    {user && currentUserRole.email.toLowerCase() === 'trucgiau.truong@gmail.com' && (
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-semibold">
+                        Chủ tài khoản
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-100 text-xs">
+                    {user ? currentUserRole.fullName : 'Khách vãng lai'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono truncate">
+                    {user ? user.email : 'Chưa đăng nhập'}
+                  </div>
                 </div>
-                {allUserRoles.map((ur) => (
-                  <button
-                    key={ur.email}
-                    onClick={() => {
-                      if (user) onSelectUserRole(ur);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs flex flex-col transition-colors ${
-                      user && ur.email.toLowerCase() === currentUserRole.email.toLowerCase()
-                        ? 'bg-slate-700/80 text-emerald-400 font-semibold'
-                        : 'text-slate-200 hover:bg-slate-700/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{ur.fullName}</span>
-                      {ur.email.toLowerCase() === 'trucgiau.truong@gmail.com' && (
-                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">Chủ tài khoản</span>
-                      )}
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-750">
+                    <span className="text-slate-400">Tên vai trò:</span>
+                    <span className="font-bold text-amber-300 text-right">
+                      {user ? currentUserRole.roleName : 'Khách (Chỉ xem Tồn kho)'}
+                    </span>
+                  </div>
+
+                  {user ? (
+                    <div>
+                      <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1.5 mt-2">
+                        Chi tiết quyền hạn các trang:
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                        {Object.entries(currentUserRole.sheets || {}).map(([key, sheet]) => {
+                          const sheetLabels: Record<string, string> = {
+                            nhap: '1. Nhập hàng',
+                            xuat: '2. Xuất hàng',
+                            tonKho: '3. Tồn kho',
+                            dashboard: '4. Dashboard',
+                            phanQuyen: '5. Phân quyền',
+                            ncc: '6. Data NCC'
+                          };
+                          const label = sheetLabels[key] || key;
+                          const access = sheet?.access;
+                          return (
+                            <div key={key} className="flex items-center justify-between bg-slate-800/50 px-2 py-1 rounded border border-slate-800">
+                              <span className="text-slate-300 truncate max-w-[85px]" title={label}>
+                                {label}
+                              </span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                access === 'edit'
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : access === 'view'
+                                  ? 'bg-blue-500/20 text-blue-300'
+                                  : 'bg-rose-500/20 text-rose-300'
+                              }`}>
+                                {access === 'edit' ? 'Xem & Sửa' : access === 'view' ? 'Chỉ xem' : 'Khóa'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <span className="text-[10px] text-slate-400">{ur.roleName} ({ur.email})</span>
-                  </button>
-                ))}
+                  ) : (
+                    <div className="space-y-2 pt-1">
+                      <div className="p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-[11px] text-blue-200 leading-relaxed">
+                        <strong className="text-blue-100 block mb-0.5">Quyền hạn của Khách:</strong>
+                        Chỉ được xem trang tính <strong>Tồn kho</strong>. Không được phép chỉnh sửa dữ liệu hoặc truy cập 5 trang tính còn lại.
+                      </div>
+                      <button
+                        onClick={onOpenQuickLogin}
+                        className="w-full py-1.5 text-center text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Đăng nhập để nhận đúng vai trò
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

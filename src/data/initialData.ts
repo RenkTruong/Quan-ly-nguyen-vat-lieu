@@ -87,6 +87,20 @@ export const INITIAL_ROLE_DEFINITIONS: RoleDefinition[] = [
       phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
       ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'view', columns: {} }
     }
+  },
+  {
+    id: 'guest',
+    name: 'Khách (Chỉ xem Tồn kho)',
+    description: 'Chỉ được phép xem duy nhất Sheet Tồn kho, hoàn toàn không được chỉnh sửa và không được truy cập các Sheet khác',
+    isSystem: true,
+    defaultSheets: {
+      nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'hidden', columns: {} },
+      xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'hidden', columns: {} },
+      tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'view', columns: {} },
+      dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'hidden', columns: {} },
+      phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
+      ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'hidden', columns: {} }
+    }
   }
 ];
 

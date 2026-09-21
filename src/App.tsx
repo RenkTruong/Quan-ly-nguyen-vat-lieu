@@ -42,6 +42,21 @@ export interface AppUser {
   photoURL?: string | null;
 }
 
+export const GUEST_USER_ROLE: UserRole = {
+  email: '',
+  fullName: 'Khách vãng lai',
+  role: 'guest',
+  roleName: 'Khách (Chỉ xem Tồn kho)',
+  sheets: {
+    nhap: { sheetId: 'nhap', sheetName: 'Lịch sử Nhập hàng', access: 'hidden', columns: {} },
+    xuat: { sheetId: 'xuat', sheetName: 'Lịch sử Xuất hàng', access: 'hidden', columns: {} },
+    tonKho: { sheetId: 'tonKho', sheetName: 'Báo cáo Tồn kho', access: 'view', columns: {} },
+    dashboard: { sheetId: 'dashboard', sheetName: 'Dashboard Phân tích', access: 'hidden', columns: {} },
+    phanQuyen: { sheetId: 'phanQuyen', sheetName: 'Phân quyền User', access: 'hidden', columns: {} },
+    ncc: { sheetId: 'ncc', sheetName: 'Danh bạ Nhà cung cấp', access: 'hidden', columns: {} }
+  }
+};
+
 export default function App() {
   // Auth state - persists locally for GitHub Pages & seamless offline access
   const [user, setUser] = useState<AppUser | null>(() => {
@@ -74,7 +89,19 @@ export default function App() {
 
   const [roleDefinitions, setRoleDefinitions] = useState<RoleDefinition[]>(() => {
     const saved = localStorage.getItem('nvl_role_defs');
-    return saved ? JSON.parse(saved) : initialRoleDefinitions;
+    if (saved) {
+      try {
+        const parsed: RoleDefinition[] = JSON.parse(saved);
+        if (!parsed.some(r => r.id === 'guest')) {
+          const guestDef = initialRoleDefinitions.find(r => r.id === 'guest');
+          if (guestDef) parsed.push(guestDef);
+        }
+        return parsed;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return initialRoleDefinitions;
   });
 
   const [minStocks, setMinStocks] = useState<Record<string, number>>(() => {
@@ -82,8 +109,32 @@ export default function App() {
     return saved ? JSON.parse(saved) : initialMinStocks;
   });
 
-  // Role & Tab state: Default tab is 'tonKho' when not logged in
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(initialUsers[0]);
+  // Role & Tab state: Mặc định là Khách vãng lai (Chỉ xem Tồn kho) nếu chưa đăng nhập
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(() => {
+    const saved = localStorage.getItem('nvl_session_user');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed?.email) {
+          const userEmailLower = parsed.email.toLowerCase();
+          const matched = initialUsers.find((u) => u.email.toLowerCase() === userEmailLower);
+          if (matched) return matched;
+          if (userEmailLower === OWNER_EMAIL.toLowerCase()) {
+            return {
+              email: parsed.email,
+              fullName: parsed.displayName || 'Trúc Giàu Trương (Chủ tài khoản)',
+              role: 'admin',
+              roleName: 'Quản trị viên cấp cao (Chủ sở hữu)',
+              sheets: initialRoleDefinitions[0].defaultSheets
+            };
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return GUEST_USER_ROLE;
+  });
   const [activeTab, setActiveTab] = useState<SheetId>('tonKho');
 
   // Check if current logged-in user is the Owner (trucgiau.truong@gmail.com)
@@ -198,6 +249,7 @@ export default function App() {
           }
         }
         setUser(null);
+        setCurrentUserRole(GUEST_USER_ROLE);
         setActiveTab('tonKho');
       }
     });
@@ -317,7 +369,7 @@ export default function App() {
     }
     localStorage.removeItem('nvl_session_user');
     setUser(null);
-    setCurrentUserRole(initialUsers[0]);
+    setCurrentUserRole(GUEST_USER_ROLE);
     setActiveTab('tonKho');
   };
 

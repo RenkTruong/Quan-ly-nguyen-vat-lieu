@@ -26,6 +26,7 @@ export const InventorySheet: React.FC<InventorySheetProps> = ({
   exports,
   minStocks,
   onUpdateMinStock,
+  currentUserRole,
   sheetPermission,
   onNavigateToImportWithItem
 }) => {
@@ -37,6 +38,10 @@ export const InventorySheet: React.FC<InventorySheetProps> = ({
   const [tempMinVal, setTempMinVal] = useState<number>(10);
 
   const uniqueId = useId();
+
+  // Quyền chỉnh sửa: vai trò khách hoặc không có quyền edit thì CHỈ ĐƯỢC XEM, không được chỉnh sửa
+  const isGuest = !currentUserRole || currentUserRole.role === 'guest' || currentUserRole.role === 'viewer';
+  const canEdit = !isGuest && sheetPermission?.access === 'edit';
 
   // Kiểm tra quyền truy cập cột Chi phí nhập
   const isChiPhiHidden = sheetPermission?.columns?.chiPhiNhap === 'hidden';
@@ -147,6 +152,12 @@ export const InventorySheet: React.FC<InventorySheetProps> = ({
               <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded-full font-medium">
                 {displayedInventory.length} mã nguyên vật liệu
               </span>
+              {!canEdit && (
+                <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs px-2.5 py-0.5 rounded-full font-semibold inline-flex items-center">
+                  <Lock className="w-3 h-3 mr-1 text-amber-700" />
+                  Chỉ xem (Không có quyền chỉnh sửa)
+                </span>
+              )}
             </div>
             <p className="text-sm text-slate-500 mt-1">
               Mã hàng hóa duy nhất &bull; Tổng nhập, Tổng xuất, Chi phí chạy theo ngày &bull; Tồn kho = Nhập - Xuất &bull; Tự động cảnh báo Nhập mới
@@ -322,36 +333,40 @@ export const InventorySheet: React.FC<InventorySheetProps> = ({
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      {isEditingMin ? (
-                        <div className="inline-flex items-center space-x-1">
-                          <input
-                            type="number"
-                            value={tempMinVal}
-                            onChange={(e) => setTempMinVal(Number(e.target.value))}
-                            className="w-16 px-1.5 py-0.5 border border-slate-300 rounded text-right text-xs"
-                          />
+                      {canEdit ? (
+                        isEditingMin ? (
+                          <div className="inline-flex items-center space-x-1">
+                            <input
+                              type="number"
+                              value={tempMinVal}
+                              onChange={(e) => setTempMinVal(Number(e.target.value))}
+                              className="w-16 px-1.5 py-0.5 border border-slate-300 rounded text-right text-xs"
+                            />
+                            <button
+                              onClick={() => {
+                                onUpdateMinStock(item.maHangHoa, tempMinVal);
+                                setEditingMinCode(null);
+                              }}
+                              className="text-emerald-600 hover:text-emerald-700 font-bold px-1"
+                            >
+                              ✓
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             onClick={() => {
-                              onUpdateMinStock(item.maHangHoa, tempMinVal);
-                              setEditingMinCode(null);
+                              setEditingMinCode(item.maHangHoa);
+                              setTempMinVal(item.tonToiThieu);
                             }}
-                            className="text-emerald-600 hover:text-emerald-700 font-bold px-1"
+                            className="group inline-flex items-center text-slate-700 hover:text-blue-600 cursor-pointer"
+                            title="Bấm để sửa định mức tồn tối thiểu"
                           >
-                            ✓
+                            <span>{formatNumber(item.tonToiThieu)}</span>
+                            <SlidersHorizontal className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 text-blue-500 transition-opacity" />
                           </button>
-                        </div>
+                        )
                       ) : (
-                        <button
-                          onClick={() => {
-                            setEditingMinCode(item.maHangHoa);
-                            setTempMinVal(item.tonToiThieu);
-                          }}
-                          className="group inline-flex items-center text-slate-700 hover:text-blue-600 cursor-pointer"
-                          title="Bấm để sửa định mức tồn tối thiểu"
-                        >
-                          <span>{formatNumber(item.tonToiThieu)}</span>
-                          <SlidersHorizontal className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 text-blue-500 transition-opacity" />
-                        </button>
+                        <span className="font-medium text-slate-700">{formatNumber(item.tonToiThieu)}</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
@@ -361,7 +376,7 @@ export const InventorySheet: React.FC<InventorySheetProps> = ({
                             <AlertTriangle className="w-3.5 h-3.5 mr-1 text-rose-600 animate-pulse" />
                             Cần nhập hàng
                           </span>
-                          {onNavigateToImportWithItem && (
+                          {canEdit && onNavigateToImportWithItem && (
                             <button
                               onClick={() => onNavigateToImportWithItem(item.maHangHoa, item.tenHangHoa)}
                               className="p-1 text-rose-600 hover:bg-rose-100 rounded transition-colors cursor-pointer"
