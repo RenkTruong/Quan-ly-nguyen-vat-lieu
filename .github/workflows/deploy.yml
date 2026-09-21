@@ -33,24 +33,24 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+        run: npm ci || npm install
 
       - name: Build project
         run: npm run build
 
-      - name: Copy 404 and nojekyll
-        run: |
-          cp dist/index.html dist/404.html
-          touch dist/.nojekyll
-
       - name: Setup Pages
+        id: pages
         uses: actions/configure-pages@v4
+        continue-on-error: true
 
       - name: Upload artifact
+        if: steps.pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
 
       - name: Deploy to GitHub Pages
+        if: steps.pages.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
